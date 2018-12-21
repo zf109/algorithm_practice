@@ -1,0 +1,298 @@
+\documentclass{article} [10pt] % Comment this line out
+                                                          % if you need a4paper
+                                                          % paper
+
+%\IEEEoverridecommandlockouts                              % This command is only
+                                                          % needed if you want to
+                                                          % use the \thanks command
+%\overrideIEEEmargins
+% See the \addtolength command later in the file to balance the column lengths
+% on the last page of the document
+
+
+
+%=====================PACKAGES======================
+% The following packages can be found on http:\\www.ctan.org
+%-----------------graphics related---------------------
+\usepackage{graphics} % for pdf, bitmapped graphics files
+\usepackage{epstopdf}
+ \usepackage{epsfig} % for postscript graphics files
+\DeclareGraphicsExtensions{.pdf,.eps,.png,.jpg,.mps}
+%\usepackage{minibox}
+%\usepackage{subfigure}
+%\usepackage{tikz}
+%\usetikzlibrary{calc,patterns,decorations.pathmorphing,decorations.markings}
+%\usepackage{pgfplots}
+\setlength{\unitlength}{1cm}
+%-------------------layout related-------------------
+%\usepackage{cite}
+\usepackage{verbatim}
+\usepackage{enumerate}
+\setlength\parindent{0pt}
+\setlength{\parskip}{.25cm}
+%-------------------------Math related-------------------------------
+%\usepackage{mathptmx} % assumes new font selection scheme installed
+\usepackage{times} % assumes new font selection scheme installed
+\usepackage{amsmath} % assumes amsmath package installed
+\usepackage{amssymb}  % assumes amsmath package installed
+\usepackage{empheq}
+%\usepackage{algorithm2e}
+%\usepackage{algorithm} 
+%\usepackage{algpseudocode}
+%\usepackage{mathrsfs}
+\usepackage{amsthm}
+%\newtheoremstyle{definition}
+\newtheorem{defi}{Definition}
+\newtheorem{asmp}{Assumption}
+%-------------------------------------------
+%\theoremstyle{plain}
+\newtheorem{thm}{Theorem}
+\newtheorem{lma}{Lemma}
+\DeclareMathOperator{\fl}{fl}
+\DeclareMathOperator{\card}{card}
+% Comment out the next line to get single spacing
+%=====================TITLE======================
+\title{Back propagation algoirthm}
+\author{Zhe Feng}
+\date{\today}
+
+
+\graphicspath{{Figures/}}
+
+\begin{document}
+\noindent
+\maketitle
+\section{Problem Description}	\label{sec:problem_ddescription}
+Back propagation lays in the central part of the neuralnet. Essentially, consider general definition of a neural network:
+
+\begin{align}
+	&\hat{y}_k := z^L_k \text{ for } k \in \{1, \cdots, n_y\}\\
+	&z^\ell_k := \sigma^\ell (m^\ell_k) \text{ for } \ell \in \{2, \cdots, L\} \\
+	&m^\ell_k := \sum^{n_{\ell-1}}_i w^\ell_{ik}z^{\ell-1}_i \text{ for } k \in \{1, \cdots, n_{\ell}\} \label{eq:netin}\\ 
+	&z^1_k := x_k \text{ for } k \in \{1, \cdots, n_x\}
+\end{align}
+where
+\begin{enumerate}
+	\item $z^\ell \in \mathbb{R}^{n_\ell}$ is the net output of the $\ell^{th}$ layer (so the $L$ is the output layer of the net.
+	\item $m^\ell \in \mathbb{R}^{n_\ell}$ is the net input of the $\ell^{th}$ layer.
+	\item $w^\ell := [w^\ell_{11}, w^\ell_{12}, \cdots,w^\ell_{n_{\ell-1}1}, \cdots,w^\ell_{n_{\ell-1}n_\ell}]^\top \in \mathbb{R}^{n_{\ell-1}n_\ell}$ is the weight parameters at layer $\ell$, where $w^\ell_{ij}$ is the weight at layer $\ell$ connect node $i$ at layer $\ell-1$ to node $j$ in layer $\ell$.
+	\item $W^\ell := \begin{bmatrix}
+				w_{11}^\ell &w_{12}^\ell &\cdots &w_{1n_\ell}^\ell\\
+				w^\ell_{21} &\ddots \\
+				\vdots,\\
+				w^\ell_{n_{\ell-1}1} &&&w^\ell_{n_{\ell-1}n_\ell}
+				\end{bmatrix} \in \mathbb{R}^{n_{\ell-1}\times n_\ell}$ is the weight matrix at layer $\ell$, this is for the convenience of notation later.
+	\item $\sigma^\ell(x)$ is the activation function at the $\ell^{th}$ layer (in most cases are sigmoid function, hence the symbol $\sigma$).
+\end{enumerate}
+So the ultimate goal is to tune the weights and make sure that the error is minimised. So our cost function would be:
+\begin{align}
+	\text{min}_w &Q(y; w) := \frac{1}{N} \sum_i^N \| \hat{y}^{(i)} - y^{(i)} \| \\
+	\text{where } &w := \begin{bmatrix}w^1\\ \vdots\\ w^L\end{bmatrix} \in \mathbb{R}^{\Pi_\ell^Ln_\ell}
+\end{align}
+
+\section{Back propagation algorithm}
+In general, for most optimisation algoirthm, the bottomline comes to find a stationary point where the derivative is zero, that is:
+\begin{align}
+	w^* \text{ such that }\nabla_wQ = 0
+\end{align}
+
+\subsection{Output layer delta}
+Consider the weights $W^L$ in the output layer, the partial derivative to those weights are:
+\begin{align} \label{eq:output_delta}
+\boxed{
+	\frac{\partial Q}{\partial w^L_{ij}} = \frac{\partial Q}{\partial z^L_{j}}
+							\frac{\partial z^L_{j}}{\partial m^L_{j}}
+							\frac{\partial m^L_{j}}{\partial w^L_{ij}}
+}
+\end{align}
+This is done by using chain rule, and we know that $w^L_{ij}$ will only contribute to the $j^{th}$ output $y_j=z^L_j$
+.
+
+\subsubsection{Find the term $\frac{\partial m^L_{j}}{\partial w^L_{ij}}$ }
+Now for $\frac{\partial z^L_{j}}{\partial m^L_{j}}$, we can see:
+\begin{align} \label{eq:dzdm_sigmoid_derivative}
+\boxed{
+	\frac{\partial z^L_{j}}{\partial m^L_{j}} = \frac{\partial}{\partial m^L_{j}}\sigma^L(m^L_{j}) = {\sigma^L}^\prime(m^L_{j})
+}
+\end{align}
+where
+\begin{align}
+	{\sigma^L}^\prime(m^L_{j}) := \frac{d}{dm^L_{j}}\sigma^L(m^L_{j})
+\end{align}
+One special case, is when the activation function is the logistic sigmoid function:
+\begin{align}
+	&\sigma^L(m) := \frac{1}{1+e^{-m}} \\
+	\therefore \ &{\sigma^L}^\prime(m) = \sigma^L(m)(1-\sigma^L(m))
+\end{align}
+detailed derivation can be done easily using chain rule.
+
+\subsubsection{Find the term $\frac{\partial z^L_{j}}{\partial m^L_{j}}$}
+Recall the definition of $m^L$, \eqref{eq:netin}, then the next term is easy:
+\begin{align}\label{eq:dmdw_z}
+\boxed{
+	\frac{\partial m^L_{j}}{\partial w^L_{ij}} = z^{L-1}_i
+}
+\end{align}
+
+Put things together and substitute \eqref{eq:dzdm_sigmoid_derivative}  and \eqref{eq:dmdw_z} back to \eqref{eq:output_delta}, we have
+\begin{align}
+	\frac{\partial Q}{\partial w^L_{ij}} = \frac{\partial Q}{\partial z^L_{j}}
+							{\sigma^L}^\prime(m^L_{j}) 
+							z^{L-1}_i
+\end{align}
+wich in a more compact vector form, we can write it as 
+\begin{align}
+	\nabla_{w^L} Q = (\nabla_{z^L}Q \odot {\sigma^L}^\prime(m^L)) \otimes z^{L-1}
+\end{align}
+where
+\begin{align}
+	\nabla_{w^L} Q = \begin{bmatrix}
+		\frac{\partial Q}{\partial w^L_{11}} \\
+		\frac{\partial Q}{\partial w^L_{12}} \\
+		\vdots\\
+		\frac{\partial Q}{\partial w^L_{n_{\ell-1}n_\ell}}
+	\end{bmatrix}
+\end{align}
+
+For implementation and notation convenience, we can also re-write the above equation as
+\begin{align} \label{eq:delta_w_out}
+\boxed{
+	\Delta W^L = (\nabla_{z^L}Q \odot {\sigma^L}^\prime(m^L))^\top z^{L-1}
+}
+\end{align}
+where
+\begin{align}
+	\Delta W^L  = \begin{bmatrix}
+				\frac{\partial Q}{\partial w^L_{11}} &\frac{\partial Q}{\partial w^L_{12}} &\cdots \\
+				\frac{\partial Q}{\partial w^L_{21}} &\ddots \\
+				\vdots,\\
+				\end{bmatrix} \in \mathbb{R}^{n_{\ell-1}\times n_\ell}
+\end{align}
+which can then be easily plug in to the update equation \boxed{W^L -=\eta\Delta W^L} and $\eta$ is the learning rate.
+
+
+\subsubsection{$\delta$ notation}
+To make sense of the backpropagation, we use $\delta$ notation to denote the error delta for a particular node. Define:
+\begin{align}
+	\delta^L := \nabla_{z^L}Q \odot {\sigma^L}^\prime(m^L)
+\end{align}
+where
+\begin{align}
+	\delta^L = \begin{bmatrix} \delta^L_1\\ \vdots\\ \delta^L_{n_L}\end{bmatrix} \\
+	\text{and } \delta^L_j =\frac{\partial Q}{\partial z^L_{j}}{\sigma^L}^\prime(m^L_{j}) \label{eq:node_delta_output}
+\end{align}
+Then equation \eqref{eq:delta_w_out} can be rewritten as:
+\begin{align}
+	\Delta W^L = {\delta^L}^\top z^{L-1}
+\end{align}
+
+\subsection{Hidden layers deltas}
+Now for hiddenlayers, similar principle applies:
+\begin{align} \label{eq:hidden_delta}
+\boxed{
+	\frac{\partial Q}{\partial w^\ell_{ij}} = \sum_k^{n_{\ell+1}}\frac{\partial Q}{\partial z^{\ell+1}_{k}}
+							\frac{\partial z^{\ell+1}_{k}}{\partial m^{\ell+1}_{k}}
+							\frac{\partial m^{\ell+1}_{k}}{\partial z^\ell_j}
+							\frac{\partial z^\ell_j}{\partial m^\ell_{j}}
+							\frac{\partial m^\ell_{j}}{\partial w^\ell_{ij}}
+\text{ for } \ell \in \{2, \cdots, L-1\}
+}
+\end{align}
+The key difference here is for hidden layers, the partial derivative of weight $w^\ell_{ij}$ will affect all the nodes in $\ell+1$ layer (unlike in output layer $L$, where $w^L_{ij}$ will only affect $j^{th}$ node, which is $z^L_j$), hence the sum over all the partial derivatives of $\ell+1$ layer nodes: $\frac{\partial Q}{\partial w^\ell_{ij}} = \sum_k^{n_{\ell+1}}\frac{\partial Q}{\partial z^{\ell+1}_{k}}\frac{\partial z^{\ell+1}_{k}}{\partial w^\ell_{ij}}$.
+
+
+\subsubsection{Recursively define $\delta^\ell$ through back propagation}
+It is easy to see that:
+\begin{align}
+\frac{\partial Q}{\partial z^{\ell+1}_{k}}\frac{\partial z^{\ell+1}_{k}}{\partial m^{\ell+1}_{k}} = \frac{\partial Q}{\partial z^{\ell+1}_{k}}{\sigma^{\ell+1}}^\prime(m^{\ell+1}_{k})
+\end{align}
+and when $\ell=L-1$, from equation \eqref{eq:node_delta_output} we have $\delta^L_j$. It is also easy to see that:
+\begin{align}
+	\frac{\partial m^{\ell+1}_{k}}{\partial z^\ell_j} = w^{\ell+1}_{jk}
+\end{align}
+from the definition in equation \eqref{eq:netin}. Through similar logic in deducing output layer delta, with equations \eqref{eq:dzdm_sigmoid_derivative}  and \eqref{eq:dmdw_z}, we can write equation \eqref{eq:hidden_delta} as:
+\begin{align}
+	\frac{\partial Q}{\partial w^\ell_{ij}} = \sum_k^{n_{\ell+1}}\delta^{\ell+1}_kw^{\ell+1}_{jk}
+							{\sigma^{\ell}}^\prime(m^{\ell}_j)z^{\ell-1}_i
+\text{ for } \ell \in \{2, \cdots, L-1\}
+\end{align}
+and 
+\begin{align}
+\boxed{
+	\delta^\ell_j := \sum_k^{n_{\ell+1}}\delta^{\ell+1}_kw^{\ell+1}_{jk}{\sigma^{\ell}}^\prime(m^{\ell}_j)
+} \\
+\boxed{
+	\therefore \text{in vector form }  \delta^\ell := W^{\ell+1}{\delta^{\ell+1}} \odot {\sigma^{\ell}}^\prime(m^{\ell})
+}
+\end{align}
+Note that when $\ell=L-1$, the $\delta^{\ell+1}=\delta^L$ which is the output layer nodes' deltas defiend in equation \eqref{eq:node_delta_output}.
+
+So now for hidden layer, we can have the same form of definition as for output layer:
+\begin{align} \label{eq:delta_w_hidden}
+\boxed{
+	\Delta W^\ell = {\delta^{\ell}}^\top z^{\ell-1}
+}
+\end{align}
+
+\subsection{The back propagation algorithm}
+Now we have all the ingradient to summarise our back propagation algorithm:
+\begin{enumerate}
+	\item run feedforward through the neuralnet work, calculate all $m^\ell$, $z^\ell$ and consequently $\hat{y}$.
+	\item back propagate the error, calculate $\Delta W^\ell$ for all $\ell \in \{2, \cdots, L\}$.
+	\item update all $W^\ell$ with 
+	\begin{align}
+		\boxed{W^\ell = W^\ell - \eta\Delta W^\ell \text{ for } \ell \in \{2, \cdots, L\}}
+	\end{align}
+	where 
+%	\begin{subequations}
+	\begin{empheq}[box=\fbox]{align}
+		\Delta W^\ell &= {\delta^{\ell}}^\top z^{\ell-1} \\
+		\delta^\ell &= W^{\ell+1}{\delta^{\ell+1}} \odot {\sigma^{\ell}}^\prime(m^{\ell}) \text{ for } \ell \in \{2,\cdots, L-1\}\\
+		\delta^L &= \nabla_{z^L}Q \odot {\sigma^L}^\prime(m^L)
+	\end{empheq}
+%	\end{subequations}
+	\item Repeat till converge ($\nabla_wQ \leq \epsilon$).
+\end{enumerate}
+Note that we still haven't discussed bias at each layer $b^\ell$ yet. It is actually very simple, it can be shown that 
+\begin{align}
+	\boxed{\Delta b^\ell = \delta^\ell \text{ for } \ell \in \{2, \cdots, L\}}
+\end{align}
+therefore bias $b^\ell$ can be updated by 
+\begin{align}
+	\boxed{b^\ell = b^\ell - \eta\Delta b^\ell \text{ for } \ell \in \{2, \cdots, L\}}
+\end{align}
+\end{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

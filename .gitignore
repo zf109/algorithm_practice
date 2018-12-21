@@ -17,3 +17,6 @@ miscs
 tmp
 data/*
 **/*.pyc
+*.log
+*.aux
+*.gz
