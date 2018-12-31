@@ -1,17 +1,36 @@
-from heapq import merge
+# from heapq import merge
 
 from random import randint
 from time import time
 from functools import reduce
 import operator as op
 
-def merge_sort(m):
-    if len(m) <= 1:
-        return m
+def merge(sorted1, sorted2):
+    if not sorted1:
+        return sorted2
+    if not sorted2:
+        return sorted1
 
-    middle = len(m) // 2
-    left = m[:middle]
-    right = m[middle:]
+    merged = []
+    i, j = 0, 0
+    while i < len(sorted1) and j < len(sorted2):
+        if sorted1[i] < sorted2[j]:
+            merged.append(sorted1[i])
+            i += 1
+        else:
+            merged.append(sorted2[j])
+            j += 1
+    rest = sorted1[i:] if j == len(sorted2) else sorted2[j:]
+    return merged + rest
+
+
+def merge_sort(seq):
+    if len(seq) <= 1:
+        return seq
+
+    middle = len(seq) // 2
+    left = seq[:middle]
+    right = seq[middle:]
 
     left = merge_sort(left)
     right = merge_sort(right)
@@ -40,8 +59,9 @@ def insertion_sort(l):
 def _test_time(sort_func):
     test_list = [randint(0,100) for x in range(10000)]
     start = time()
-    sort_func(test_list)
-    print(sort_func, "takes time: ", time()-start)
+    res = sort_func(test_list)
+    print(sort_func.__name__, "takes time: ", time()-start)
+    assert res == sorted(test_list)
 
 
 def ncr(n, r):
@@ -52,6 +72,6 @@ def ncr(n, r):
     return numer//denom
 
 if __name__ == "__main__":
-    _test_time(bubble_sort)
+    # _test_time(bubble_sort)
     _test_time(merge_sort)
-    _test_time(insertion_sort)
+    # _test_time(insertion_sort)
