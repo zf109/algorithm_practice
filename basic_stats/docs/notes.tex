@@ -1,0 +1,154 @@
+\documentclass{article} [10pt] % Comment this line out
+                                                          % if you need a4paper
+                                                          % paper
+
+%\IEEEoverridecommandlockouts                              % This command is only
+                                                          % needed if you want to
+                                                          % use the \thanks command
+%\overrideIEEEmargins
+% See the \addtolength command later in the file to balance the column lengths
+% on the last page of the document
+
+
+
+%=====================PACKAGES======================
+% The following packages can be found on http:\\www.ctan.org
+\usepackage{hyperref}
+%-----------------graphics related---------------------
+\usepackage{graphics} % for pdf, bitmapped graphics files
+\usepackage{epstopdf}
+ \usepackage{epsfig} % for postscript graphics files
+\DeclareGraphicsExtensions{.pdf,.eps,.png,.jpg,.mps}
+%\usepackage{minibox}
+%\usepackage{subfigure}
+%\usepackage{tikz}
+%\usetikzlibrary{calc,patterns,decorations.pathmorphing,decorations.markings}
+%\usepackage{pgfplots}
+\setlength{\unitlength}{1cm}
+%-------------------layout related-------------------
+%\usepackage{cite}
+\usepackage{verbatim}
+\usepackage{enumerate}
+\setlength\parindent{0pt}
+\setlength{\parskip}{.25cm}
+%-------------------------Math related-------------------------------
+%\usepackage{mathptmx} % assumes new font selection scheme installed
+\usepackage{times} % assumes new font selection scheme installed
+\usepackage{amsmath} % assumes amsmath package installed
+\usepackage{amssymb}  % assumes amsmath package installed
+%\usepackage{algorithm2e}
+%\usepackage{algorithm} 
+%\usepackage{algpseudocode}
+%\usepackage{mathrsfs}
+\usepackage{amsthm}
+%\newtheoremstyle{definition}
+\newtheorem{defi}{Definition}
+\newtheorem{asmp}{Assumption}
+%-------------------------------------------
+%\theoremstyle{plain}
+\newtheorem{thm}{Theorem}
+\newtheorem{lma}{Lemma}
+\DeclareMathOperator{\fl}{fl}
+\DeclareMathOperator{\card}{card}
+% Comment out the next line to get single spacing
+%=====================TITLE======================
+\title{Sampling problem}
+\author{Zhe Feng}
+\date{\today}
+
+
+\graphicspath{{Figures/}}
+
+\begin{document}
+\noindent
+%\maketitle
+\section{The problem}	\label{sec:the_problem}
+In a project, I faced a problem of sampling a certain number of data points for human to tag. We want to find a particular property of the data, that is very rare, if even exists.
+
+There two questions here essentially need answers:
+\begin{enumerate}
+	\item If this property does not exist, how many we should sample to be confident it does not exists within our total population.
+	\item If the answer to the previous question becomes too large for human review. Then with a given number of samples (that is small enough for human review), and our observation that there are $\hat{x}$ positives (and $\hat{x}$ can be zero) within the samples, how confident are we with the population within the total population.
+\end{enumerate}
+This describes a familiy of problems. For example, imagine the dataset you have is the millions of trades from a bank, you want to find potnetial rogue trading behaviour, which you are not sure if it is exists.
+
+
+The general setup of this problem can be described as following:
+\begin{enumerate}
+	\item We have $n$ total data points ($n$ is large), and then we need to sample $k$ from these points for expensive observation (e.g. manual inspection).
+	\item There are $x$ data points, within $n$ total population we have, are positive (i.e. having the property that we have).
+	\item Within $k$ samples, we observe $\hat{x}$ positive data points.
+	\item Given observation we have $\hat{x} \in \{0, 1, \cdots, k\}$ (note we included 0 to indicate thre can be no such property), what is the probability distribution of $x$?
+\end{enumerate}
+
+\textbf{Note:} This problem is slightly different from the standard problem that we were facing when talking about confidence interval. you have a random variable follow certain distribution (say, the closest is Bernoulli distribution) and it tells you how many sample you should draw from it (thus there's no concept of total population). On the contrary, in our problem we care about drawing sample from a set total population.
+
+\section{The thought}
+As I am very Bayesian person, so I decided to approach this problem in a Bayesian way, the above question to me is equivalent to solve the following:
+\begin{align}
+	\mathbb{P}(X_n=x|\hat{X}_k=\hat{x}) = \frac{\mathbb{P}(\hat{X}_k=\hat{x}|X_n=x)\mathbb{P}(X_n=x)}{\mathbb{P}(\hat{X}_k=\hat{x})}
+\end{align}
+where
+\begin{itemize}
+	\item $X_n$ is the random variable where given $n$ total population, you observed $X$ positives.
+	\item $\hat{X}_k$ is the random variable where given $k$ sample, you observed $\hat{X}$ positives.
+	\item $\mathbb{P}(X_n=x|\hat{X}_k=\hat{x})$ is the probability distribution of observing $X$ number of positives within total $n$ population, given we have observed $\hat{x}$ within our sample.
+\end{itemize}
+
+Naturally, we start with uninformative prior $\mathbb{P}(X_n)= \frac{1}{n+1}$ (notice the $n+1$ here is to include the possibility of zero positives), the normalising constant is
+\begin{align}
+	\mathbb{P}(\hat{X}_k=\hat{x}) = \sum_{i=0}^n \mathbb{P}(\hat{X}_k=\hat{x}|X_n=i)
+\end{align}
+
+The interesting bit lies in the calculation of the posterior distribution. Consider an instance here:
+\begin{align}
+\mathbb{P}(\hat{X}_2=0|X_3=2)
+\end{align}
+with a total population $n=3$, and we have 1 positive, what is the probability of seeing 0 positive from a random sample of 2?
+
+Let's go back to basics, assume each datapoint is $A$, $B$ and $C$, and when sample 2, we have a combination of $AB$, $AC$, $BC$, and without loss of generality, assume that one postive data point is $C$. Then it means we have 1/3 of chance to observe 0 positive if we sample 2.
+
+What about 4? We have $AB$, $AC$, $AD$, $BC$, $BD$, $CD$, we have 1/2. Now we generalise this into a formula:
+\begin{align}
+\mathbb{P}(\hat{X}_k=0|X_n=x)& = \frac{C_k^{n-x}}{C_k^{n}}  \\
+						& = \frac{(n-x)!}{k!(n-x-k)!}  \frac{k!(n-k)!}{n!} \\
+						& = \frac{\Pi_{i=0}^{x-1}(n-k-i)}{\Pi_{i=0}^{x-1}(n-i)}
+\end{align}
+but this is not general enough.
+
+
+\end{document}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
