@@ -69,7 +69,7 @@ class SingleLayerSigmoidMLP():
             Y_pred = self.predict(X)
             error = cost(Y_pred, Y)
             if epoch % int(max_epoch/10) == 0:
-                print("Epoc: {}, error function value: {}".format(epoch, error))
+                print("Epoch: {}, error function value: {}".format(epoch, error))
             if  error < eps:
                 return
             for x, y in zip(X, Y):

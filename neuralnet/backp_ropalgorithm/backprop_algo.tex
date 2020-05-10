@@ -20,7 +20,9 @@
 \DeclareGraphicsExtensions{.pdf,.eps,.png,.jpg,.mps}
 %\usepackage{minibox}
 %\usepackage{subfigure}
-%\usepackage{tikz}
+\usepackage{tikz}
+\usetikzlibrary{matrix,chains,positioning,decorations.pathreplacing,arrows}
+
 %\usetikzlibrary{calc,patterns,decorations.pathmorphing,decorations.markings}
 %\usepackage{pgfplots}
 \setlength{\unitlength}{1cm}
@@ -41,6 +43,7 @@
 %\usepackage{algpseudocode}
 %\usepackage{mathrsfs}
 \usepackage{amsthm}
+\usepackage{cleveref}
 %\newtheoremstyle{definition}
 \newtheorem{defi}{Definition}
 \newtheorem{asmp}{Assumption}
@@ -62,39 +65,123 @@
 \begin{document}
 \noindent
 \maketitle
+\section{Introduction}
+Deep learning is the hotest topic in AI these days. Convolution neural network (CNN) is widely used in image recognition and gained huge success, recurrent nerual networks (RNN) used in sequantial data prediction and achieved unprecedented performance in automatic speech recognition (ASR) and automatic translation. Behind all these success, is an algorithm that is developed 1960s, independently from researchers in different disciplines, and its name is back propagation.
+
+Back propagation lays in the hearts of artificial neural netowrks, whether it's a simple network with one hidden layer or a complex CNN such as ResNet, they all use back propagation to calculate the gradient. This article will go through detail about what is a back propagation algorithm and how does it work.
+
+Of course, these days to use a complicated neural network, you don't need to know detail about how backpropagation work, because there are many packages/frameworks shaded it away from you. However, if you are interested in how back propagation works and the elegant mathematical structure with it, please read on.
+
 \section{Problem Description}	\label{sec:problem_ddescription}
-Back propagation lays in the central part of the neuralnet. Essentially, consider general definition of a neural network:
+Essentially, given a feature vector $x$ of dimension $n_x$ and a target vector $y$ with dimension $y_{n_y}$ neural network will try to predict and approximate it with $\hat{y}$ which is the output from our neural network. A general neural network can be described by the following equations:
 
 \begin{align}
-	&\hat{y}_k := z^L_k \text{ for } k \in \{1, \cdots, n_y\}\\
-	&z^\ell_k := \sigma^\ell (m^\ell_k) \text{ for } \ell \in \{2, \cdots, L\} \\
-	&m^\ell_k := \sum^{n_{\ell-1}}_i w^\ell_{ik}z^{\ell-1}_i \text{ for } k \in \{1, \cdots, n_{\ell}\} \label{eq:netin}\\ 
-	&z^1_k := x_k \text{ for } k \in \{1, \cdots, n_x\}
+	&\hat{y}_k := z^L_k \text{ for } k \in \{1, \cdots, n_y\} \label{eq:output} \\
+	&z^\ell_k := \sigma^\ell (m^\ell_k) \text{ for } \ell \in \{2, \cdots, L\} \label{eq:layeroutput} \\
+	&m^\ell_k := \sum^{n_{\ell-1}}_i w^\ell_{ik}z^{\ell-1}_i \text{ for } k \in \{2, \cdots, n_{\ell}\} \label{eq:netin}\\ 
+	&z^1_k := x_k \text{ for } k \in \{1, \cdots, n_x\} \label{eq:input}
 \end{align}
 where
 \begin{enumerate}
 	\item $z^\ell \in \mathbb{R}^{n_\ell}$ is the net output of the $\ell^{th}$ layer (so the $L$ is the output layer of the net.
 	\item $m^\ell \in \mathbb{R}^{n_\ell}$ is the net input of the $\ell^{th}$ layer.
-	\item $w^\ell := [w^\ell_{11}, w^\ell_{12}, \cdots,w^\ell_{n_{\ell-1}1}, \cdots,w^\ell_{n_{\ell-1}n_\ell}]^\top \in \mathbb{R}^{n_{\ell-1}n_\ell}$ is the weight parameters at layer $\ell$, where $w^\ell_{ij}$ is the weight at layer $\ell$ connect node $i$ at layer $\ell-1$ to node $j$ in layer $\ell$.
+	\item $w^\ell := [w^\ell_{11}, w^\ell_{12}, \cdots,w^\ell_{n_{\ell-1}1}, \cdots,w^\ell_{n_{\ell-1}n_\ell}]^\top \in \mathbb{R}^{n_{\ell-1}n_\ell}$ is the weight parameters at layer $\ell$, where $w^\ell_{ij}$ is the weight at layer $\ell$ connect node $i$ at layer $\ell-1$ to node $j$ in layer $\ell$. Note that we don't have $w^1$ since the 1st layer is the input layer.
 	\item $W^\ell := \begin{bmatrix}
-				w_{11}^\ell &w_{12}^\ell &\cdots &w_{1n_\ell}^\ell\\
+				w_{11}^\ell &w_{12}^\ell &\cdots &w_{1n_{\ell-1}}^\ell\\
 				w^\ell_{21} &\ddots \\
 				\vdots,\\
-				w^\ell_{n_{\ell-1}1} &&&w^\ell_{n_{\ell-1}n_\ell}
-				\end{bmatrix} \in \mathbb{R}^{n_{\ell-1}\times n_\ell}$ is the weight matrix at layer $\ell$, this is for the convenience of notation later.
+				w^\ell_{n_{\ell}1} &&&w^\ell_{n_{\ell}n_{\ell-1}}
+				\end{bmatrix} \in \mathbb{R}^{n_\ell \times n_{\ell-1}}$ is the weight matrix at layer $\ell$, this is for the convenience of notation later.
 	\item $\sigma^\ell(x)$ is the activation function at the $\ell^{th}$ layer (in most cases are sigmoid function, hence the symbol $\sigma$).
 \end{enumerate}
-So the ultimate goal is to tune the weights and make sure that the error is minimised. So our cost function would be:
-\begin{align}
+
+The 4 equation description is very simple and elegant: equation \eqref{eq:output} essentially just say the last layer's output $z^L$ is our target estimation $\hat{y}$ and equation \eqref{eq:input} state that the first layer's output $z^1$ is the input feature variable $x$. With the start and the end defined, equation \eqref{eq:netin} and \eqref{eq:layeroutput} are recursive definition of the layers. This is illustrated in the following example plot:
+
+\begin{tikzpicture}[
+	init/.style={
+	  draw,
+	  circle,
+	  inner sep=2pt,
+	  font=\Huge,
+	  join = by -latex
+	},
+	squa/.style={
+	  draw,
+	  inner sep=2pt,
+	  font=\Large,
+	  join = by -latex
+	},
+	start chain=2,node distance=13mm
+]
+
+% z_1
+\begin{scope}[start chain=1]
+\node[on chain=1] at (0,1.5cm) 
+  (z1) {$z^{\ell-1}_1$};
+\node[on chain=1,join=by o-latex] 
+  (w1) {$w^\ell_{1k}$};
+\end{scope}
+
+% z_2
+\begin{scope}
+\node[on chain=2] 
+  (z2) {$z^{\ell-1}_2$};
+\node[on chain=2,join=by o-latex] 
+ (w2) {$w^\ell_{2k}$};
+\end{scope}
+
+% z_3
+\begin{scope}[start chain=3]
+\node[on chain=3] at (0,-1.5cm) 
+  (z3) {$z^{\ell-1}_3$};
+\node[on chain=3,label=below:Weights,join=by o-latex] 
+  (w3) {$w^\ell_{3k}$};
+\end{scope}
+
+
+% input bracket
+%\draw[decorate,decoration={brace,mirror}] (z1.north west) -- node[left=10pt] {Previous layer outputs} (z3.south west);
+
+\begin{scope}
+\node[on chain=2,init] (sigma)
+  {$\displaystyle\Sigma$};
+  
+\node[on chain=2,join=by -latex]  (m)
+  {$m^\ell_k$};
+  
+\node[on chain=2,squa,label=above:{\parbox{2cm}{\centering Activate \\ function}}]   
+  {$\sigma^\ell$};
+\end{scope}
+
+%\node[label=above:\parbox{2cm}{\centering Bias \\ $b$}] at (sigma|-w1) (b) {};
+
+\draw[-latex] (w1) -- (sigma);
+\draw[-latex] (w2) -- (sigma);
+\draw[-latex] (w3) -- (sigma);
+%\draw[o-latex] (b) -- (sigma);
+
+\node[on chain=2,label=above:Output,join=by -latex] 
+  {$z^{\ell}$};
+
+
+\end{tikzpicture}
+
+
+
+
+Note that the ultimate goal is to tune the weights and make sure that the error is minimised. So our cost function would be:
+\begin{align*}
 	\text{min}_w &Q(y; w) := \frac{1}{N} \sum_i^N \| \hat{y}^{(i)} - y^{(i)} \| \\
-	\text{where } &w := \begin{bmatrix}w^1\\ \vdots\\ w^L\end{bmatrix} \in \mathbb{R}^{\Pi_\ell^Ln_\ell}
-\end{align}
+	&\text{s.t. \cref{eq:output,eq:input,eq:netin,eq:layeroutput}} \\
+	\text{where } &w := \{w^2 \cdots w^L\}
+\end{align*}
 
 \section{Back propagation algorithm}
 In general, for most optimisation algoirthm, the bottomline comes to find a stationary point where the derivative is zero, that is:
 \begin{align}
 	w^* \text{ such that }\nabla_wQ = 0
 \end{align}
+And that is what makes optimisation of neural network hard: neural networks' definition function is a recursive definition and finding gradient of it is very challenging. Back propagation essentially leverage chain rule in calculus to recursively propagate the error gradient backwards from the last output layer to the first input layer.
 
 \subsection{Output layer delta}
 Consider the weights $W^L$ in the output layer, the partial derivative to those weights are:
@@ -108,7 +195,7 @@ Consider the weights $W^L$ in the output layer, the partial derivative to those 
 This is done by using chain rule, and we know that $w^L_{ij}$ will only contribute to the $j^{th}$ output $y_j=z^L_j$
 .
 
-\subsubsection{Find the term $\frac{\partial m^L_{j}}{\partial w^L_{ij}}$ }
+\subsubsection{Find the term   $\frac{\partial z^L_{j}}{\partial m^L_{j}}$}
 Now for $\frac{\partial z^L_{j}}{\partial m^L_{j}}$, we can see:
 \begin{align} \label{eq:dzdm_sigmoid_derivative}
 \boxed{
@@ -126,7 +213,7 @@ One special case, is when the activation function is the logistic sigmoid functi
 \end{align}
 detailed derivation can be done easily using chain rule.
 
-\subsubsection{Find the term $\frac{\partial z^L_{j}}{\partial m^L_{j}}$}
+\subsubsection{Find the term $\frac{\partial m^L_{j}}{\partial w^L_{ij}}$}
 Recall the definition of $m^L$, \eqref{eq:netin}, then the next term is easy:
 \begin{align}\label{eq:dmdw_z}
 \boxed{
@@ -157,12 +244,17 @@ where
 For implementation and notation convenience, we can also re-write the above equation as
 \begin{align} \label{eq:delta_w_out}
 \boxed{
-	\Delta W^L = (\nabla_{z^L}Q \odot {\sigma^L}^\prime(m^L))^\top z^{L-1}
+	\Delta W^L = z^{L-1}(\nabla_{z^L}Q \odot {\sigma^L}^\prime(m^L))^\top
 }
 \end{align}
 where
 \begin{align}
-	\Delta W^L  = \begin{bmatrix}
+	\Delta W^L &= \begin{bmatrix}z^{L-1}_1\\ z^{L-1}_2\\ \vdots \\z^{L-1}_{n_{L-1}}\end{bmatrix}
+	\begin{bmatrix}   \frac{\partial Q}{\partial z^L_{1}}{\sigma^L}^\prime(m^L_{1}),
+	\frac{\partial Q}{\partial z^L_{2}}{\sigma^L}^\prime(m^L_{2}), \cdots
+	\frac{\partial Q}{\partial z^L_{n_L}}{\sigma^L}^\prime(m^L_{n_L})
+	\end{bmatrix}\\
+	 &= \begin{bmatrix}
 				\frac{\partial Q}{\partial w^L_{11}} &\frac{\partial Q}{\partial w^L_{12}} &\cdots \\
 				\frac{\partial Q}{\partial w^L_{21}} &\ddots \\
 				\vdots,\\
@@ -183,7 +275,7 @@ where
 \end{align}
 Then equation \eqref{eq:delta_w_out} can be rewritten as:
 \begin{align}
-	\Delta W^L = {\delta^L}^\top z^{L-1}
+	\Delta W^L = (z^{L-1})^\top{\delta^L}
 \end{align}
 
 \subsection{Hidden layers deltas}
@@ -198,13 +290,17 @@ Now for hiddenlayers, similar principle applies:
 \text{ for } \ell \in \{2, \cdots, L-1\}
 }
 \end{align}
+This holds because it follows the chain rule for partial differentiation in the following form:
+\begin{align*}
+	\frac{\partial f(g_1(x), g_2(x), \cdots g_n(x))}{\partial x} = \sum_i^n \frac{\partial f}{\partial g_i}\frac{d g_i(x)}{dx}
+\end{align*}
 The key difference here is for hidden layers, the partial derivative of weight $w^\ell_{ij}$ will affect all the nodes in $\ell+1$ layer (unlike in output layer $L$, where $w^L_{ij}$ will only affect $j^{th}$ node, which is $z^L_j$), hence the sum over all the partial derivatives of $\ell+1$ layer nodes: $\frac{\partial Q}{\partial w^\ell_{ij}} = \sum_k^{n_{\ell+1}}\frac{\partial Q}{\partial z^{\ell+1}_{k}}\frac{\partial z^{\ell+1}_{k}}{\partial w^\ell_{ij}}$.
 
 
 \subsubsection{Recursively define $\delta^\ell$ through back propagation}
 It is easy to see that:
 \begin{align}
-\frac{\partial Q}{\partial z^{\ell+1}_{k}}\frac{\partial z^{\ell+1}_{k}}{\partial m^{\ell+1}_{k}} = \frac{\partial Q}{\partial z^{\ell+1}_{k}}{\sigma^{\ell+1}}^\prime(m^{\ell+1}_{k})
+\frac{\partial Q}{\partial z^{\ell+1}_{k}}\frac{\partial z^{\ell+1}_{k}}{\partial m^{\ell+1}_{k}} = \frac{\partial Q}{\partial z^{\ell+1}_{k}}{\sigma^{\ell+1}}^\prime(m^{\ell+1}_{k}) = \delta^{\ell+1}_k
 \end{align}
 and when $\ell=L-1$, from equation \eqref{eq:node_delta_output} we have $\delta^L_j$. It is also easy to see that:
 \begin{align}
