@@ -5,8 +5,12 @@ def sigmoid(z):
     return sig
 
 def d_sigmoid(m):
+    """
+        derivative of sigmmoid function
+    """
     return sigmoid(m)*(1-sigmoid(m))
 
+# vectorise them, so that it can be applied to array
 sigmoid_vec = np.vectorize(sigmoid)
 d_sigmoid_vec = np.vectorize(d_sigmoid)
 

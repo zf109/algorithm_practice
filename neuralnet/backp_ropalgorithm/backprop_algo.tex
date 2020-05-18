@@ -66,11 +66,9 @@
 \noindent
 \maketitle
 \section{Introduction}
-Deep learning is the hotest topic in AI these days. Convolution neural network (CNN) is widely used in image recognition and gained huge success, recurrent nerual networks (RNN) used in sequantial data prediction and achieved unprecedented performance in automatic speech recognition (ASR) and automatic translation. Behind all these success, is an algorithm that is developed 1960s, independently from researchers in different disciplines, and its name is back propagation.
+Deep learning is the hottest topic in AI these days. Convolution neural network (CNN) is widely used in image recognition and gained huge success, recurrent neural networks (RNN) used in sequential data prediction and achieved unprecedented performance in automatic speech recognition (ASR) and automatic translation. Behind all these success, is an algorithm that is developed 1960s, independently from researchers in different disciplines, and its name is back propagation.
+Back propagation lays in the heart of artificial neural networks, whether it's a simple network with one hidden layer or a complex CNNs, they all use back propagation to calculate the gradient (with different variations). Of course, these days to use complicated neural networks, you don't need to know detail about how back propagation work. However, as a personal interest, I decided to have a proper understanding of how it works and appreciate its beautiful mathematical structure.
 
-Back propagation lays in the hearts of artificial neural netowrks, whether it's a simple network with one hidden layer or a complex CNN such as ResNet, they all use back propagation to calculate the gradient. This article will go through detail about what is a back propagation algorithm and how does it work.
-
-Of course, these days to use a complicated neural network, you don't need to know detail about how backpropagation work, because there are many packages/frameworks shaded it away from you. However, if you are interested in how back propagation works and the elegant mathematical structure with it, please read on.
 
 \section{Problem Description}	\label{sec:problem_ddescription}
 Essentially, given a feature vector $x$ of dimension $n_x$ and a target vector $y$ with dimension $y_{n_y}$ neural network will try to predict and approximate it with $\hat{y}$ which is the output from our neural network. A general neural network can be described by the following equations:
@@ -171,7 +169,7 @@ The 4 equation description is very simple and elegant: equation \eqref{eq:output
 
 Note that the ultimate goal is to tune the weights and make sure that the error is minimised. So our cost function would be:
 \begin{align*}
-	\text{min}_w &Q(y; w) := \frac{1}{N} \sum_i^N \| \hat{y}^{(i)} - y^{(i)} \| \\
+	\text{min}_w &Q(y; w) := \frac{1}{N} \sum_i^N \frac{1}{2}\| \hat{y}^{(i)} - y^{(i)} \|^2 \\
 	&\text{s.t. \cref{eq:output,eq:input,eq:netin,eq:layeroutput}} \\
 	\text{where } &w := \{w^2 \cdots w^L\}
 \end{align*}
@@ -219,6 +217,10 @@ Recall the definition of $m^L$, \eqref{eq:netin}, then the next term is easy:
 \boxed{
 	\frac{\partial m^L_{j}}{\partial w^L_{ij}} = z^{L-1}_i
 }
+\end{align}
+or in a more general form:
+\begin{align}\label{eq:dmdw_z}
+	\frac{\partial m^\ell_{j}}{\partial w^\ell_{ij}} = z^{\ell-1}_i
 \end{align}
 
 Put things together and substitute \eqref{eq:dzdm_sigmoid_derivative}  and \eqref{eq:dmdw_z} back to \eqref{eq:output_delta}, we have
@@ -270,12 +272,17 @@ To make sense of the backpropagation, we use $\delta$ notation to denote the err
 \end{align}
 where
 \begin{align}
-	\delta^L = \begin{bmatrix} \delta^L_1\\ \vdots\\ \delta^L_{n_L}\end{bmatrix} \\
-	\text{and } \delta^L_j =\frac{\partial Q}{\partial z^L_{j}}{\sigma^L}^\prime(m^L_{j}) \label{eq:node_delta_output}
+	\delta^L = \begin{bmatrix} \delta^L_1\\ \vdots\\ \delta^L_{n_L}\end{bmatrix} \\ 
+	\text{and } 
+	\delta^L_j =\frac{\partial Q}{\partial z^L_{j}}{\sigma^L}^\prime(m^L_{j}) \label{eq:node_delta_output}
+\end{align}
+or more generally:
+\begin{align}
+	\delta^\ell_j := \frac{\partial Q}{\partial z^\ell_j}\frac{\partial z^\ell_j}{\partial m_j}
 \end{align}
 Then equation \eqref{eq:delta_w_out} can be rewritten as:
 \begin{align}
-	\Delta W^L = (z^{L-1})^\top{\delta^L}
+	\Delta W^L = (z^{L-1}){\delta^L}^\top
 \end{align}
 
 \subsection{Hidden layers deltas}
@@ -312,10 +319,15 @@ from the definition in equation \eqref{eq:netin}. Through similar logic in deduc
 							{\sigma^{\ell}}^\prime(m^{\ell}_j)z^{\ell-1}_i
 \text{ for } \ell \in \{2, \cdots, L-1\}
 \end{align}
-and 
+since we can also write the above as:
+\begin{align}
+	\frac{\partial Q}{\partial w^\ell_{ij}} =  \frac{\partial Q}{\partial z^\ell_j}\frac{\partial z^\ell_j}{\partial m^\ell_j}\frac{\partial m^\ell_j}{\partial w^\ell_{ij}}
+\text{ for } \ell \in \{2, \cdots, L-1\}
+\end{align}
+and we can see $\frac{\partial m^\ell_j}{\partial w^\ell_{ij}}=z^{\ell-1}_i$:
 \begin{align}
 \boxed{
-	\delta^\ell_j := \sum_k^{n_{\ell+1}}\delta^{\ell+1}_kw^{\ell+1}_{jk}{\sigma^{\ell}}^\prime(m^{\ell}_j)
+	\delta^\ell_j :=  \frac{\partial Q}{\partial z^\ell_j}\frac{\partial z^\ell_j}{\partial m^\ell_j} = \sum_k^{n_{\ell+1}}\delta^{\ell+1}_kw^{\ell+1}_{jk}{\sigma^{\ell}}^\prime(m^{\ell}_j)
 } \\
 \boxed{
 	\therefore \text{in vector form }  \delta^\ell := W^{\ell+1}{\delta^{\ell+1}} \odot {\sigma^{\ell}}^\prime(m^{\ell})
@@ -326,10 +338,10 @@ Note that when $\ell=L-1$, the $\delta^{\ell+1}=\delta^L$ which is the output la
 So now for hidden layer, we can have the same form of definition as for output layer:
 \begin{align} \label{eq:delta_w_hidden}
 \boxed{
-	\Delta W^\ell = {\delta^{\ell}}^\top z^{\ell-1}
+	\Delta W^\ell = z^{\ell-1}{\delta^{\ell}}^\top
 }
 \end{align}
-
+\newpage
 \subsection{The back propagation algorithm}
 Now we have all the ingradient to summarise our back propagation algorithm:
 \begin{enumerate}
@@ -342,7 +354,7 @@ Now we have all the ingradient to summarise our back propagation algorithm:
 	where 
 %	\begin{subequations}
 	\begin{empheq}[box=\fbox]{align}
-		\Delta W^\ell &= {\delta^{\ell}}^\top z^{\ell-1} \\
+		\Delta W^\ell &= z^{\ell-1}{\delta^{\ell}}^\top  \\
 		\delta^\ell &= W^{\ell+1}{\delta^{\ell+1}} \odot {\sigma^{\ell}}^\prime(m^{\ell}) \text{ for } \ell \in \{2,\cdots, L-1\}\\
 		\delta^L &= \nabla_{z^L}Q \odot {\sigma^L}^\prime(m^L)
 	\end{empheq}
