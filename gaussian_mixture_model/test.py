@@ -1,4 +1,4 @@
-from gmm import gaussian_pdf, e_step, m_step
+from gmm import gaussian_pdf, e_step, m_step, likelihood_function
 import numpy as np
 from scipy.stats import multivariate_normal
 
@@ -13,6 +13,30 @@ def test_gaussian_dist():
     y = gaussian_pdf(x, mu, sigma)
     y_expected = multivariate_normal.pdf(x, mean=mu, cov=sigma)
     np.testing.assert_almost_equal(y, y_expected)
+
+def test_likelihood_function():
+    X = np.array([
+        [3,     2,     0],
+        [30,    20,   10],
+        [10,    15,   20],
+        [35,    25,   10],
+        [35,    21,   12],
+    ])
+    mus = np.array([[3, 2, 0], [30, 20, 10]])
+    sigmas = np.array([
+        [[1, .5,  0],
+        [.5, 1, .5],
+        [0, .5,  1]],
+        [[1, .5,  0],
+        [.5, 1, .5],
+        [0, .5,  1]],
+    ])
+    taus = np.array([.5, .5])
+    likelihood = likelihood_function(X, taus, mus, sigmas)
+
+    np.testing.assert_almost_equal(likelihood, np.array([4.48967805e-02, 4.48967805e-02, 1.10797610e-99, 3.22993412e-10,
+       4.37124049e-11]))
+    
 
 def test_e_step():
     X = np.array([
@@ -44,7 +68,10 @@ def test_e_step():
 def test_em():
     mean1, mean2 = np.array([0, 0]), np.array([10, 20])
     sigma1, sigma2 = np.array([[1, 0], [0, 1]]), np.array([[5, -5], [-5, 10]])
+
+    np.random.seed(42)
     X1 = np.random.multivariate_normal(mean1, sigma1, 1000)
+    np.random.seed(42)
     X2 = np.random.multivariate_normal(mean2, sigma2, 200)
     X = np.vstack([X1, X2])
     mus = np.array([[0, 0], [2, 2]])
